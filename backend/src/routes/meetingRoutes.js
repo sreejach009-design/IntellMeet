@@ -9,25 +9,23 @@ import {
   endMeeting,
   getDashboardStats,
 } from '../controllers/meetingController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, optionalProtect } from '../middleware/authMiddleware.js';
 import { validateCreateMeeting } from '../validators/meetingValidator.js';
 
 const router = express.Router();
 
-router.use(protect);
-
-router.get('/stats/dashboard', getDashboardStats);
+router.get('/stats/dashboard', protect, getDashboardStats);
 
 router.route('/')
-  .get(getMeetings)
-  .post(validateCreateMeeting, createMeeting);
+  .get(protect, getMeetings)
+  .post(protect, validateCreateMeeting, createMeeting);
 
 router.route('/:id')
-  .get(getMeetingById)
-  .put(updateMeeting)
-  .delete(deleteMeeting);
+  .get(optionalProtect, getMeetingById)
+  .put(protect, updateMeeting)
+  .delete(protect, deleteMeeting);
 
-router.post('/:id/join', joinMeeting);
-router.post('/:id/end', endMeeting);
+router.post('/:id/join', optionalProtect, joinMeeting);
+router.post('/:id/end', protect, endMeeting);
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { meetingService } from '../services/meetingService';
 import { aiService } from '../services/aiService';
 import { actionItemService } from '../services/actionItemService';
@@ -22,15 +22,19 @@ import {
   CheckSquare,
   ArrowLeft,
   Plus,
+  CheckCircle2,
 } from 'lucide-react';
 import { formatDateTime, formatDuration } from '../utils/formatters';
 
 const MeetingDetailPage = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const autoSummarize = searchParams.get('autoSummarize');
 
   const [meeting, setMeeting] = useState(null);
   const [aiData, setAiData] = useState({ summary: null, transcript: null, actionItems: [] });
   const [loading, setLoading] = useState(true);
+  const [summarizing, setSummarizing] = useState(false);
   const [activeTab, setActiveTab] = useState('intelligence'); // intelligence | action-items | transcript
 
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
@@ -48,13 +52,36 @@ const MeetingDetailPage = () => {
         setMeeting(meetingRes.meeting);
       }
 
-      if (aiRes.success) {
-        setAiData({
-          summary: aiRes.summary,
-          transcript: aiRes.transcript,
-          actionItems: aiRes.actionItems || [],
-        });
+      let currentSummary = aiRes.summary;
+      let currentTranscript = aiRes.transcript;
+      let currentActions = aiRes.actionItems || [];
+
+      // If meeting has no summary yet or arrived from concluded session, automatically generate AI intelligence!
+      const shouldAutoSummarize = !currentSummary || autoSummarize === 'true';
+      if (shouldAutoSummarize) {
+        setSummarizing(true);
+        try {
+          const genRes = await aiService.generateMeetingIntelligence(id);
+          if (genRes.success) {
+            currentSummary = genRes.summary;
+            currentActions = genRes.actionItems || [];
+            const refreshedAi = await aiService.getMeetingAIResults(id);
+            if (refreshedAi.success) {
+              currentTranscript = refreshedAi.transcript;
+            }
+          }
+        } catch (e) {
+          console.warn('[Auto-summary notice]', e);
+        } finally {
+          setSummarizing(false);
+        }
       }
+
+      setAiData({
+        summary: currentSummary,
+        transcript: currentTranscript,
+        actionItems: currentActions,
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -64,7 +91,7 @@ const MeetingDetailPage = () => {
 
   useEffect(() => {
     fetchMeetingData();
-  }, [id]);
+  }, [id, autoSummarize]);
 
   const handleActionItemStatus = async (itemId, newStatus) => {
     try {
@@ -184,6 +211,14 @@ const MeetingDetailPage = () => {
           </div>
         </div>
       </Card>
+
+      {/* Auto-summarizing loading banner */}
+      {summarizing && (
+        <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-500/40 text-purple-200 text-xs flex items-center gap-3 animate-pulse shadow-lg">
+          <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin shrink-0" />
+          <span>IntellMeet AI is analyzing the meeting transcript and generating executive summary, decisions, and action items...</span>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-slate-800 gap-6 text-sm">

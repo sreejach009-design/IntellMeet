@@ -79,3 +79,50 @@ export const getInitials = (name = 'User') => {
     .join('')
     .toUpperCase();
 };
+
+/**
+ * Worldwide Public Tunnel URL (Cloudflare Tunnel)
+ * Ensures valid SSL/HTTPS for mobile camera/microphone permissions and connects across any network
+ */
+export const PUBLIC_TUNNEL_URL = 'https://minerals-advice-buck-assessments.trycloudflare.com';
+export const LAN_IP_URL = 'http://192.168.29.146:5173';
+
+/**
+ * Resolves the primary shareable meeting link.
+ * If the host is on localhost, it generates the Worldwide Secure Link so external phones & attendees can join with camera & mic enabled.
+ */
+export const getShareableMeetingLink = (meetingCodeOrId) => {
+  if (typeof window === 'undefined') return `/room/${meetingCodeOrId}`;
+  const hostname = window.location.hostname;
+
+  if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+    if (PUBLIC_TUNNEL_URL) {
+      return `${PUBLIC_TUNNEL_URL}/room/${meetingCodeOrId}`;
+    }
+    return `${LAN_IP_URL}/room/${meetingCodeOrId}`;
+  }
+
+  return `${window.location.origin}/room/${meetingCodeOrId}`;
+};
+
+/**
+ * Resolves the Worldwide Secure Public Tunnel Link
+ */
+export const getTunnelMeetingLink = (meetingCodeOrId) => {
+  return `${PUBLIC_TUNNEL_URL}/room/${meetingCodeOrId}`;
+};
+
+/**
+ * Resolves the Local Wi-Fi Network Link
+ */
+export const getWifiMeetingLink = (meetingCodeOrId) => {
+  return `${LAN_IP_URL}/room/${meetingCodeOrId}`;
+};
+
+/**
+ * Resolves the exact local meeting link (this computer only)
+ */
+export const getLocalMeetingLink = (meetingCodeOrId) => {
+  if (typeof window === 'undefined') return `/room/${meetingCodeOrId}`;
+  return `${window.location.origin}/room/${meetingCodeOrId}`;
+};

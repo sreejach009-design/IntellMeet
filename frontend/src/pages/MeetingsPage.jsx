@@ -17,8 +17,10 @@ import {
   Plus,
   Trash2,
   ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react';
-import { formatDateTime, formatDuration } from '../../src/utils/formatters';
+import { formatDateTime, formatDuration, getShareableMeetingLink } from '../utils/formatters';
 
 const MeetingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,6 +32,7 @@ const MeetingsPage = () => {
   const [timeframe, setTimeframe] = useState(initialTimeframe);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
 
   const navigate = useNavigate();
 
@@ -70,12 +73,14 @@ const MeetingsPage = () => {
   const handleStartInstant = async () => {
     try {
       const res = await meetingService.createMeeting({
-        title: 'Instant Sync Session',
+        title: `${user?.name || 'User'}'s Instant Meeting`,
         isInstant: true,
       });
-      navigate(`/room/${res.meeting.meetingCode || res.meeting._id}`);
+      if (res?.meeting) {
+        navigate(`/room/${res.meeting.meetingCode || res.meeting._id}`);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[Instant Meeting Error]', err);
     }
   };
 
@@ -232,6 +237,25 @@ const MeetingsPage = () => {
                         Details & AI
                       </Button>
                     </Link>
+
+                    {!isCancelled && (
+                      <button
+                        onClick={() => {
+                          const link = getShareableMeetingLink(m.meetingCode || m._id);
+                          navigator.clipboard.writeText(link);
+                          setCopiedId(m._id);
+                          setTimeout(() => setCopiedId(null), 2000);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                        title="Copy meeting invite link"
+                      >
+                        {copiedId === m._id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
 
                     {!isCompleted && !isCancelled && (
                       <button

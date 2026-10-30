@@ -9,15 +9,19 @@ import {
   MessageSquare,
   PhoneOff,
   Sparkles,
+  Captions,
 } from 'lucide-react';
 
 const MeetingControls = ({
   isAudioMuted,
   isVideoOff,
   isScreenSharing,
+  isSpeechActive = false,
+  isSpeaking = false,
   onToggleAudio,
   onToggleVideo,
   onToggleScreenShare,
+  onToggleSpeech,
   onToggleParticipants,
   onToggleChat,
   onToggleAI,
@@ -32,8 +36,8 @@ const MeetingControls = ({
       {/* Left side info */}
       <div className="hidden md:flex items-center gap-3">
         <span className="flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          Encrypted WebRTC Mesh
+          <span className={`w-2 h-2 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+          {isSpeaking ? 'Voice Detected' : isSpeechActive ? 'Speech-to-Text Active' : 'Microphone Ready'}
         </span>
       </div>
 
@@ -41,29 +45,58 @@ const MeetingControls = ({
       <div className="flex items-center gap-2 sm:gap-3 mx-auto md:mx-0">
         {/* Audio Mute/Unmute */}
         <button
+          type="button"
           onClick={onToggleAudio}
-          className={`p-3.5 rounded-2xl transition-all shadow-lg ${
+          className={`p-3.5 rounded-2xl transition-all shadow-lg cursor-pointer select-none relative ${
             isAudioMuted
               ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
+              : isSpeaking
+              ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 ring-2 ring-emerald-400/80 shadow-emerald-500/30'
               : 'bg-slate-800 hover:bg-slate-700 text-white'
           }`}
-          title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+          title={isAudioMuted ? 'Unmute Microphone' : isSpeaking ? 'Microphone Active (Speaking)' : 'Mute Microphone'}
+          aria-label={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
         >
           {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          {isSpeaking && !isAudioMuted && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          )}
         </button>
 
         {/* Video Toggle */}
         <button
+          type="button"
           onClick={onToggleVideo}
-          className={`p-3.5 rounded-2xl transition-all shadow-lg ${
+          className={`p-3.5 rounded-2xl transition-all shadow-lg cursor-pointer select-none ${
             isVideoOff
               ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
               : 'bg-slate-800 hover:bg-slate-700 text-white'
           }`}
           title={isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
+          aria-label={isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
         >
           {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
         </button>
+
+        {/* Live Speech Recognition / Captions Toggle */}
+        {onToggleSpeech && (
+          <button
+            type="button"
+            onClick={onToggleSpeech}
+            className={`p-3.5 rounded-2xl transition-all shadow-lg cursor-pointer relative ${
+              isSpeechActive
+                ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/50 shadow-indigo-500/20 ring-1 ring-indigo-400/50'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'
+            }`}
+            title={isSpeechActive ? 'Live Captions & Speech Recording ON (Click to Pause)' : 'Turn On Live Captions & Speech Recording'}
+            aria-label={isSpeechActive ? 'Live Captions Active' : 'Enable Live Captions'}
+          >
+            <Captions className="w-5 h-5" />
+            {isSpeechActive && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+            )}
+          </button>
+        )}
 
         {/* Screen Share */}
         <button

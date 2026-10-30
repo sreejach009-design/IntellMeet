@@ -55,36 +55,53 @@ const Navbar = ({ onToggleSidebar }) => {
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
-        {/* Notifications */}
-        <NotificationDropdown />
+        {/* User Profile Pill or Sign In */}
+        {user ? (
+          <>
+            <NotificationDropdown />
+            <div className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-800">
+              <Link
+                to="/profile"
+                className="flex items-center gap-2.5 group p-1.5 pr-2.5 rounded-xl hover:bg-slate-800/60 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
+                  {getInitials(user?.name)}
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-slate-200 group-hover:text-white truncate max-w-[120px]">
+                    {user?.name || 'User'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
+                    {user?.title || 'Member'}
+                  </span>
+                </div>
+              </Link>
 
-        {/* User Profile Pill */}
-        <div className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-800">
-          <Link
-            to="/profile"
-            className="flex items-center gap-2.5 group p-1.5 pr-2.5 rounded-xl hover:bg-slate-800/60 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
-              {getInitials(user?.name)}
+              <button
+                onClick={logout}
+                className="p-2 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-rose-950/20 transition-colors"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="text-xs font-semibold text-slate-200 group-hover:text-white truncate max-w-[120px]">
-                {user?.name || 'User'}
-              </span>
-              <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
-                {user?.title || 'Member'}
-              </span>
-            </div>
-          </Link>
-
-          <button
-            onClick={logout}
-            className="p-2 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-rose-950/20 transition-colors"
-            title="Log Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="text-xs font-medium text-slate-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/register"
+              className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+            >
+              Get Started
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );

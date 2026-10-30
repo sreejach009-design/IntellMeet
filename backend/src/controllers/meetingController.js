@@ -1,7 +1,10 @@
 import Meeting from '../models/Meeting.js';
 import Workspace from '../models/Workspace.js';
 import User from '../models/User.js';
+import MeetingSummary from '../models/MeetingSummary.js';
+import Transcript from '../models/Transcript.js';
 import notificationService from '../services/notificationService.js';
+import { processMeetingIntelligence } from './aiController.js';
 
 /**
  * @route   GET /api/meetings
@@ -86,8 +89,9 @@ export const createMeeting = async (req, res, next) => {
       }
     }
 
+    const defaultTitle = `${req.user?.name || 'User'}'s Instant Meeting`;
     const meeting = await Meeting.create({
-      title: title.trim(),
+      title: (title && typeof title === 'string' && title.trim().length > 0) ? title.trim() : defaultTitle,
       description: description ? description.trim() : '',
       host: req.user._id,
       workspace: workspaceId || null,
@@ -259,19 +263,39 @@ export const joinMeeting = async (req, res, next) => {
     }
 
     // Check if participant already recorded
-    const existingIndex = meeting.participants.findIndex(
-      (p) => p.user.toString() === req.user._id.toString()
-    );
+    if (req.user) {
+      const existingIndex = meeting.participants.findIndex(
+        (p) => p.user && p.user.toString() === req.user._id.toString()
+      );
 
-    if (existingIndex >= 0) {
-      meeting.participants[existingIndex].joinedAt = new Date();
-      meeting.participants[existingIndex].leftAt = null;
-    } else {
-      meeting.participants.push({
-        user: req.user._id,
-        role: meeting.host.toString() === req.user._id.toString() ? 'host' : 'attendee',
-        joinedAt: new Date(),
-      });
+      if (existingIndex >= 0) {
+        meeting.participants[existingIndex].joinedAt = new Date();
+        meeting.participants[existingIndex].leftAt = null;
+      } else {
+        meeting.participants.push({
+          user: req.user._id,
+          name: req.user.name || '',
+          role: meeting.host.toString() === req.user._id.toString() ? 'host' : 'attendee',
+          joinedAt: new Date(),
+        });
+      }
+    } else if (req.body.name || req.body.guestName) {
+      const gName = (req.body.name || req.body.guestName).trim();
+      const existingIndex = meeting.participants.findIndex(
+        (p) => p.name && p.name.toLowerCase() === gName.toLowerCase()
+      );
+
+      if (existingIndex >= 0) {
+        meeting.participants[existingIndex].joinedAt = new Date();
+        meeting.participants[existingIndex].leftAt = null;
+      } else {
+        meeting.participants.push({
+          name: gName,
+          isGuest: true,
+          role: 'attendee',
+          joinedAt: new Date(),
+        });
+      }
     }
 
     await meeting.save();
@@ -320,6 +344,40 @@ export const endMeeting = async (req, res, next) => {
     meeting.durationMinutes = Math.max(1, Math.round(durationMs / 60000));
 
     await meeting.save();
+
+    const io = req.app.get('io');
+
+    const { transcriptText, transcript } = req.body;
+    const dialogueOverride = (transcriptText || transcript || '').trim() || null;
+
+    // Automatically trigger AI intelligence generation immediately when meeting concludes
+    let summaryResult = null;
+    try {
+      summaryResult = await processMeetingIntelligence({
+        meetingId: meeting._id,
+        overrideText: dialogueOverride,
+        user: req.user,
+        io,
+      });
+    } catch (aiErr) {
+      console.warn('[Auto summary on end error]:', aiErr.message);
+    }
+
+    // Broadcast meeting:ended event to all connected room participants via Socket.io
+    if (io) {
+      io.to(`meeting:${meeting._id}`).emit('meeting:ended', {
+        meetingId: meeting._id,
+        meetingCode: meeting.meetingCode,
+        summaryReady: Boolean(summaryResult),
+      });
+      if (meeting.meetingCode) {
+        io.to(`meeting:${meeting.meetingCode}`).emit('meeting:ended', {
+          meetingId: meeting._id,
+          meetingCode: meeting.meetingCode,
+          summaryReady: Boolean(summaryResult),
+        });
+      }
+    }
 
     res.json({
       success: true,

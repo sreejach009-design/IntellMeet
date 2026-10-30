@@ -1,12 +1,26 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import './User.js';
+import './Workspace.js';
+import './MeetingSummary.js';
+import './Transcript.js';
 
 const meetingParticipantSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
+      default: null,
+    },
+    name: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    isGuest: {
+      type: Boolean,
+      default: false,
     },
     role: {
       type: String,

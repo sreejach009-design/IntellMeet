@@ -22,4 +22,9 @@ export const aiService = {
     const response = await api.get(`/ai/summary/${meetingId}`);
     return response.data;
   },
+
+  async getMeetingTranscript(meetingId) {
+    const response = await api.get(`/ai/transcript/${meetingId}`);
+    return response.data;
+  },
 };

@@ -6,6 +6,7 @@ import Toast from '../components/common/Toast';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import { meetingService } from '../services/meetingService';
+import { getShareableMeetingLink } from '../utils/formatters';
 import { Video, Zap } from 'lucide-react';
 
 const AppLayout = () => {
@@ -25,10 +26,12 @@ const AppLayout = () => {
         title: meetingTitle.trim(),
         isInstant: true,
       });
-      setQuickModalOpen(false);
-      navigate(`/room/${res.meeting.meetingCode || res.meeting._id}`);
+      if (res?.meeting) {
+        setQuickModalOpen(false);
+        navigate(`/room/${res.meeting.meetingCode || res.meeting._id}`);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[Launch Instant Meeting Error]', err);
     } finally {
       setCreating(false);
     }

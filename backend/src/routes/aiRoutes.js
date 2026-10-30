@@ -3,15 +3,15 @@ import {
   submitTranscript,
   generateMeetingIntelligence,
   getMeetingAIResults,
+  getMeetingTranscript,
 } from '../controllers/aiController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { optionalProtect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(protect);
-
-router.post('/transcribe', submitTranscript);
-router.post('/summarize', generateMeetingIntelligence);
-router.get('/summary/:meetingId', getMeetingAIResults);
+router.post('/transcribe', optionalProtect, submitTranscript);
+router.post('/summarize', optionalProtect, generateMeetingIntelligence);
+router.get('/summary/:meetingId', optionalProtect, getMeetingAIResults);
+router.get('/transcript/:meetingId', optionalProtect, getMeetingTranscript);
 
 export default router;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { Sparkles, FileText, Upload } from 'lucide-react';
@@ -14,6 +14,12 @@ const GenerateSummaryModal = ({
   const [transcriptText, setTranscriptText] = useState(initialTranscript);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialTranscript) {
+      setTranscriptText(initialTranscript);
+    }
+  }, [initialTranscript, isOpen]);
 
   const sampleDemoTranscript = `Alex (Host): Thank you everyone for joining today's sprint and architecture alignment.
 Sarah: Let's start with the WebRTC peer connection status. The mesh signaling over Socket.io is functional. I will finalize the STUN server fallback configuration by Wednesday.

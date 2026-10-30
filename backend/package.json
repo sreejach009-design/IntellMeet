@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "IntellMeet - Backend API & Real-time Services",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "localtunnel": "^2.0.2",
     "supertest": "^7.0.0"
   }
 }

@@ -5,7 +5,7 @@ import Badge from '../common/Badge';
 import { CheckSquare, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { formatDateOnly } from '../../utils/formatters';
 
-const ActionItemsOverview = ({ actionItems = [], onStatusChange }) => {
+const ActionItemsOverview = ({ actionItems = [], onStatusChange, onAddActionItem }) => {
   const getPriorityBadge = (priority) => {
     switch (priority) {
       case 'urgent':
@@ -28,12 +28,23 @@ const ActionItemsOverview = ({ actionItems = [], onStatusChange }) => {
             </div>
             <h3 className="text-base font-semibold text-white">Pending Action Items</h3>
           </div>
-          <Link
-            to="/action-items"
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
-          >
-            Manage <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-3">
+            {onAddActionItem && (
+              <button
+                type="button"
+                onClick={onAddActionItem}
+                className="text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-semibold transition-colors"
+              >
+                + New Task
+              </button>
+            )}
+            <Link
+              to="/action-items"
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1"
+            >
+              Manage <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         {actionItems.length === 0 ? (

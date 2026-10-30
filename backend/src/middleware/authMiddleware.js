@@ -39,6 +39,31 @@ export const protect = async (req, res, next) => {
   }
 };
 
+export const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  }
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const secret = process.env.JWT_SECRET || 'super_secret_enterprise_jwt_key_2026_secure';
+    const decoded = jwt.verify(token, secret);
+    const user = await User.findById(decoded.id).select('-password');
+    req.user = user || null;
+  } catch (error) {
+    req.user = null;
+  }
+  next();
+};
+
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -50,3 +75,4 @@ export const authorizeRoles = (...roles) => {
     next();
   };
 };
+

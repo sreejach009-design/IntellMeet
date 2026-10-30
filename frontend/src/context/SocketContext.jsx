@@ -10,7 +10,22 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const resolveSocketUrl = () => {
+      if (typeof window !== 'undefined') {
+        const socketEnv = import.meta.env.VITE_SOCKET_URL;
+        if (socketEnv && socketEnv.trim().length > 0) {
+          return socketEnv.trim();
+        }
+        const apiEnv = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
+        if (apiEnv && apiEnv.trim().length > 0 && apiEnv.startsWith('http')) {
+          return apiEnv.trim().replace(/\/api\/?$/, '').replace(/\/$/, '');
+        }
+        return window.location.origin;
+      }
+      return 'http://localhost:5000';
+    };
+
+    const socketUrl = resolveSocketUrl();
 
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],

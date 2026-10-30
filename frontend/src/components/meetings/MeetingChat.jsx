@@ -136,7 +136,7 @@ const MeetingChat = ({
             >
               <div className="flex items-center gap-1.5 mb-1 text-[11px] text-slate-500">
                 <span className="font-semibold text-slate-400">
-                  {isSelf ? 'You' : m.sender?.name || 'Attendee'}
+                  {isSelf ? 'You' : m.sender?.name || m.senderName || 'Attendee'}
                 </span>
                 <span>&bull;</span>
                 <span>{formatTimeOnly(m.createdAt)}</span>

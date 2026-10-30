@@ -30,14 +30,12 @@ const AppRoutes = () => {
       </Route>
 
       {/* Fullscreen Video Meeting Room */}
-      <Route
-        path="/room/:id"
-        element={
-          <ProtectedRoute>
-            <MeetingRoomPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/room/:id" element={<MeetingRoomPage />} />
+
+      {/* Meeting Summary & Details View (Accessible to attendees & guests) */}
+      <Route element={<AppLayout />}>
+        <Route path="/meetings/:id" element={<MeetingDetailPage />} />
+      </Route>
 
       {/* Protected App Routes wrapped in AppLayout */}
       <Route
@@ -49,7 +47,6 @@ const AppRoutes = () => {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
-        <Route path="/meetings/:id" element={<MeetingDetailPage />} />
         <Route path="/workspaces" element={<WorkspacesPage />} />
         <Route path="/workspaces/:id" element={<WorkspaceDetailPage />} />
         <Route path="/action-items" element={<ActionItemsPage />} />

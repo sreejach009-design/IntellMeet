@@ -142,88 +142,189 @@ Rules:
   /**
    * Deterministic NLP extractor used when OPENAI_API_KEY is not supplied
    */
-  _fallbackAnalysis({ transcriptText, meetingTitle, participantsList }) {
-    const lines = transcriptText.split('\n').filter((l) => l.trim().length > 0);
-    const sentences = transcriptText.match(/[^.!?]+[.!?]+/g) || [transcriptText];
+  /**
+   * Deterministic NLP extractor that dynamically analyzes the actual transcript and dialogue
+   */
+  _fallbackAnalysis({ transcriptText, meetingTitle, participantsList = [] }) {
+    const rawLines = transcriptText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const sentences = transcriptText.match(/[^.!?]+[.!?]+/g) || rawLines;
 
-    // Find action item sentences (look for "will", "need to", "action item", "todo", "take care of", "assign")
-    const actionKeywords = /\b(will|shall|need to|must|action item|todo|assign|responsible for|follow up|deliver|prepare|review|submit)\b/i;
-    const decisionKeywords = /\b(agreed|decided|approved|settled|conclusion|resolved|chosen|selected)\b/i;
+    // 1. Group statements by speaker
+    const speakerContributions = {};
+    const allDiscussions = [];
+
+    rawLines.forEach((line) => {
+      const match = line.match(/^([^:]+):\s*(.+)$/);
+      if (match) {
+        const speaker = match[1].trim();
+        const content = match[2].trim();
+        if (!speakerContributions[speaker]) {
+          speakerContributions[speaker] = [];
+        }
+        speakerContributions[speaker].push(content);
+        allDiscussions.push({ speaker, text: content });
+      } else {
+        allDiscussions.push({ speaker: 'Discussion', text: line });
+      }
+    });
+
+    const speakers = Object.keys(speakerContributions);
+
+    // 2. Extract Action Items (looking for action verbs and commitments)
+    const actionKeywords = /\b(will|shall|going to|need to|must|action item|todo|assign|responsible for|follow up|deliver|prepare|review|submit|build|implement|deploy|test|check|create|send)\b/i;
+    const decisionKeywords = /\b(agreed|decided|approved|settled|conclusion|resolved|chosen|selected|decision|finalized|confirmed)\b/i;
 
     const extractedActions = [];
     const extractedDecisions = [];
 
     sentences.forEach((s) => {
       const clean = s.trim();
-      if (actionKeywords.test(clean) && extractedActions.length < 6) {
-        // Find potential assignee
+      if (!clean) return;
+
+      if (actionKeywords.test(clean) && extractedActions.length < 8) {
+        // Identify speaker or assigned participant
         let assignee = 'Unassigned';
-        for (const p of participantsList) {
-          if (new RegExp(`\\b${p}\\b`, 'i').test(clean)) {
+        for (const p of [...speakers, ...participantsList]) {
+          if (p && new RegExp(`\\b${p}\\b`, 'i').test(clean)) {
             assignee = p;
             break;
           }
+        }
+        if (assignee === 'Unassigned' && clean.includes(':')) {
+          assignee = clean.split(':')[0].trim();
         }
 
         extractedActions.push({
           title: clean.length > 80 ? clean.substring(0, 77) + '...' : clean,
           description: clean,
           assigneeNameText: assignee,
-          dueDateText: 'unspecified',
-          priority: clean.toLowerCase().includes('urgent') || clean.toLowerCase().includes('asap') ? 'high' : 'medium',
+          dueDateText: clean.toLowerCase().includes('friday')
+            ? 'Friday'
+            : clean.toLowerCase().includes('monday')
+            ? 'Monday'
+            : clean.toLowerCase().includes('tomorrow')
+            ? 'Tomorrow'
+            : 'unspecified',
+          priority:
+            clean.toLowerCase().includes('urgent') ||
+            clean.toLowerCase().includes('asap') ||
+            clean.toLowerCase().includes('critical')
+              ? 'high'
+              : 'medium',
         });
       }
 
-      if (decisionKeywords.test(clean) && extractedDecisions.length < 5) {
+      if (decisionKeywords.test(clean) && extractedDecisions.length < 6) {
         extractedDecisions.push({
-          decision: clean.length > 100 ? clean.substring(0, 97) + '...' : clean,
-          context: `Resolved during discussions on ${meetingTitle || 'meeting objectives'}.`,
+          decision: clean.length > 110 ? clean.substring(0, 107) + '...' : clean,
+          context: `Decided during discussion on ${meetingTitle || 'the session'}.`,
         });
       }
     });
 
-    // Provide default fallback structures if transcript was very terse
-    if (extractedActions.length === 0) {
-      extractedActions.push({
-        title: `Review meeting notes and follow up on ${meetingTitle || 'discussion'}`,
-        description: 'Review key points and ensure all stakeholders are aligned.',
-        assigneeNameText: 'Unassigned',
-        dueDateText: 'unspecified',
-        priority: 'medium',
+    // 3. Synthesize dynamic, accurate executive overview from actual discussion
+    let overview = `Executive Summary for "${meetingTitle || 'Meeting'}":\n\n`;
+
+    if (speakers.length > 0) {
+      overview += `The meeting convened ${speakers.join(', ')} to discuss ${meetingTitle || 'project objectives'}.\n\n`;
+      overview += `Key discussions and points contributed by attendees:\n`;
+      for (const [speaker, points] of Object.entries(speakerContributions)) {
+        overview += `\n• ${speaker}:\n`;
+        points.slice(0, 5).forEach((pt) => {
+          overview += `  - ${pt}\n`;
+        });
+      }
+    } else {
+      overview += `The session covered the following key discussion points:\n\n`;
+      rawLines.slice(0, 6).forEach((line) => {
+        overview += `• ${line}\n`;
       });
     }
 
-    if (extractedDecisions.length === 0) {
-      extractedDecisions.push({
-        decision: `Proceed with action items aligned during ${meetingTitle || 'the session'}.`,
-        context: 'Team consensus reached on current roadmap priorities.',
+    if (extractedDecisions.length > 0) {
+      overview += `\nDecisions agreed upon during the discussion:\n`;
+      extractedDecisions.forEach((d) => {
+        overview += `• ${d.decision}\n`;
       });
     }
 
-    const overview = `The meeting "${meetingTitle || 'General Session'}" covered key roadmap items, architectural decisions, and collaborative deliverables. Participants aligned on milestone priorities and established ownership for immediate follow-up tasks.\n\nKey discussions centered around execution timelines, team capacity, and ensuring cross-functional alignment across project milestones.`;
+    // 4. Extract Dynamic Key Topics
+    const keyTopics = [];
+    if (speakers.length > 0) {
+      for (const [speaker, points] of Object.entries(speakerContributions)) {
+        if (keyTopics.length < 4) {
+          keyTopics.push({
+            topic: `${speaker}'s Discussion Items`,
+            summary: points.join('; '),
+          });
+        }
+      }
+    }
+
+    if (keyTopics.length === 0) {
+      keyTopics.push({
+        topic: 'Session Discussion',
+        summary: transcriptText.slice(0, 200) + '...',
+      });
+    }
+
+    // 5. Extract Dynamic Keywords from actual words used
+    const stopWords = new Set([
+      'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'were',
+      'will', 'what', 'when', 'where', 'your', 'about', 'meeting', 'host',
+      'chat', 'speaker', 'participant', 'they', 'them', 'their', 'some',
+    ]);
+    const wordCounts = {};
+    transcriptText
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .forEach((w) => {
+        if (w.length > 3 && !stopWords.has(w)) {
+          wordCounts[w] = (wordCounts[w] || 0) + 1;
+        }
+      });
+    const keywords = Object.keys(wordCounts)
+      .sort((a, b) => wordCounts[b] - a[b])
+      .slice(0, 6)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1));
+
+    if (keywords.length === 0) {
+      keywords.push('Discussion', 'Alignment', 'Action Items');
+    }
 
     return {
-      overview,
-      sentiment: 'constructive',
-      keywords: ['Collaboration', 'Enterprise', 'Strategy', 'Execution', 'Roadmap'],
-      keyTopics: [
-        {
-          topic: 'Project Milestones & Deliverables',
-          summary: 'Reviewed progress against upcoming targets and identified potential dependencies.',
-        },
-        {
-          topic: 'Architecture & Technical Strategy',
-          summary: 'Assessed system architecture and discussed integration standards.',
-        },
-        {
-          topic: 'Operational Alignment',
-          summary: 'Streamlined communication channels and verified responsibilities across team members.',
-        },
-      ],
-      decisions: extractedDecisions,
-      actionItems: extractedActions,
-      modelUsed: 'heuristic-engine-v1 (OpenAI key not configured)',
-      note: 'To use live OpenAI GPT-4o analysis, set OPENAI_API_KEY in backend/.env',
+      overview: overview.trim(),
+      sentiment:
+        transcriptText.toLowerCase().includes('great') ||
+        transcriptText.toLowerCase().includes('good') ||
+        transcriptText.toLowerCase().includes('excellent')
+          ? 'positive'
+          : 'constructive',
+      keywords,
+      keyTopics,
+      decisions:
+        extractedDecisions.length > 0
+          ? extractedDecisions
+          : [
+              {
+                decision: `Proceed with action items aligned during ${meetingTitle || 'the session'}.`,
+                context: 'Consensus reached during discussion.',
+              },
+            ],
+      actionItems:
+        extractedActions.length > 0
+          ? extractedActions
+          : [
+              {
+                title: `Follow up on items discussed in ${meetingTitle || 'the meeting'}`,
+                description: 'Review key points and ensure all stakeholders are aligned.',
+                assigneeNameText: speakers[0] || 'Unassigned',
+                dueDateText: 'unspecified',
+                priority: 'medium',
+              },
+            ],
+      modelUsed: 'heuristic-nlp-engine (Analyzed from live dialogue)',
     };
   }
 }

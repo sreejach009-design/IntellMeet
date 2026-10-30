@@ -1,6 +1,6 @@
 # IntellMeet — AI-Powered Enterprise Meeting & Collaboration Platform
 
-IntellMeet is a complete, production-oriented full-stack enterprise platform engineered for modern remote and hybrid teams. It unifies low-latency WebRTC video conferencing, real-time Socket.io signaling and chat, collaborative workspaces, action-item tracking, automated transcription workflows, and OpenAI meeting intelligence (executive summaries, key discussion points, explicit decisions, and task extraction).
+> The platform provides real-time video conferencing, live chat, screen sharing, AI-generated meeting summaries, automatic transcription, smart action item extraction, and collaborative team workspaces within a secure and scalable environment. Built with technologies like React, Node.js, MongoDB, Socket.io, WebRTC, and OpenAI integration, IntellMeet delivers a production-grade experience with enterprise-level security, real-time performance, cloud scalability, and intelligent workflow automation, helping organizations transform meetings into actionable and efficient business outcomes.
 
 ---
 

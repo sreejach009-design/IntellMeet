@@ -19,7 +19,7 @@ const server = http.createServer(app);
 // Setup Socket.io
 const io = new SocketIOServer(server, {
   cors: {
-    origin: [CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: (origin, callback) => callback(null, true),
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -34,11 +34,12 @@ app.set('io', io);
 setupSocketHandlers(io);
 
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`=======================================================`);
   console.log(`  IntellMeet API & Socket Server running on port ${PORT}`);
   console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`  Client URL:  ${CLIENT_URL}`);
+  console.log(`  Host binding: 0.0.0.0 (All network interfaces)`);
   console.log(`=======================================================`);
 });
 

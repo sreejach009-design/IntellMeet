@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Video,
   Sparkles,
@@ -13,10 +13,13 @@ import {
   Lock,
   Calendar,
   ChevronDown,
+  LogIn,
 } from 'lucide-react';
 import Button from '../components/common/Button';
 
 const LandingPage = () => {
+  const [joinCode, setJoinCode] = useState('');
+  const navigate = useNavigate();
   const features = [
     {
       icon: Video,
@@ -127,8 +130,8 @@ const LandingPage = () => {
           </span>
         </h1>
 
-        <p className="text-base sm:text-lg text-slate-400 mt-6 max-w-2xl mx-auto leading-relaxed">
-          IntellMeet unifies low-latency WebRTC video conferencing, persistent Socket.io collaboration, and OpenAI-powered meeting intelligence into a single enterprise platform.
+        <p className="text-base sm:text-lg text-slate-300 mt-6 max-w-3xl mx-auto leading-relaxed font-normal">
+          The platform provides real-time video conferencing, live chat, screen sharing, AI-generated meeting summaries, automatic transcription, smart action item extraction, and collaborative team workspaces within a secure and scalable environment.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
@@ -143,6 +146,34 @@ const LandingPage = () => {
             </Button>
           </Link>
         </div>
+
+        {/* Quick Join by Meeting Code Bar */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (joinCode.trim()) navigate(`/room/${joinCode.trim()}`);
+          }}
+          className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-md mx-auto"
+        >
+          <div className="relative w-full sm:w-72">
+            <input
+              type="text"
+              placeholder="Have a meeting code? (e.g. MTG-123-456)"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-inner"
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="outline"
+            size="md"
+            className="w-full sm:w-auto shrink-0 border-indigo-500/50 text-indigo-300 hover:bg-indigo-600/20"
+            icon={LogIn}
+          >
+            Join Meeting
+          </Button>
+        </form>
 
         {/* Product Preview Card */}
         <div className="mt-16 p-2 rounded-2xl bg-gradient-to-b from-indigo-500/20 to-transparent border border-slate-800 shadow-2xl">

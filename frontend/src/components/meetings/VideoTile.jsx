@@ -16,6 +16,10 @@ const VideoTile = ({
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      videoRef.current.play().catch((err) => {
+        // Autoplay may need user gesture, but user clicking "Join" or interacting will allow it
+        console.warn('[VideoTile play error]', err.message);
+      });
     }
   }, [stream]);
 
@@ -23,17 +27,22 @@ const VideoTile = ({
     videoEnabled &&
     stream &&
     stream.getVideoTracks().length > 0 &&
+    !stream.getVideoTracks()[0]._isSilentFallback &&
     stream.getVideoTracks()[0].enabled;
 
   return (
-    <div className="relative w-full h-full min-h-[220px] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl group flex items-center justify-center">
+    <div className={`relative w-full h-full min-h-[220px] bg-slate-900 border ${
+      isScreenSharing ? 'border-indigo-500/60 ring-2 ring-indigo-500/20' : 'border-slate-800'
+    } rounded-2xl overflow-hidden shadow-xl group flex items-center justify-center`}>
       {/* Video Element */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted={isSelf} // Always mute local video playback to avoid acoustic feedback
-        className={`w-full h-full object-cover transition-opacity duration-300 ${
+        className={`w-full h-full ${
+          isScreenSharing ? 'object-contain bg-black' : 'object-cover'
+        } transition-opacity duration-300 ${
           hasVideoTrack ? 'opacity-100' : 'opacity-0 absolute'
         } ${isSelf && !isScreenSharing ? '-scale-x-100' : ''}`}
       />
@@ -58,8 +67,8 @@ const VideoTile = ({
             {user?.name || 'Participant'} {isSelf && '(You)'}
           </span>
           {isScreenSharing && (
-            <span className="text-[10px] bg-indigo-500/40 text-indigo-200 px-1.5 py-0.2 rounded flex items-center gap-1">
-              <Monitor className="w-2.5 h-2.5" /> Sharing
+            <span className="text-[10px] bg-indigo-500/40 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold">
+              <Monitor className="w-3 h-3 text-indigo-400 animate-pulse" /> Screen Sharing
             </span>
           )}
         </div>

@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
 import Button from '../common/Button';
-import { Calendar, Video, ArrowRight, Clock } from 'lucide-react';
-import { formatDateTime, getInitials } from '../../utils/formatters';
+import { Calendar, Video, ArrowRight, Clock, Copy, Check } from 'lucide-react';
+import { formatDateTime, getInitials, getShareableMeetingLink } from '../../utils/formatters';
 
 const UpcomingMeetingsCard = ({ meetings = [] }) => {
+  const [copiedId, setCopiedId] = useState(null);
   return (
     <Card className="p-6 flex flex-col justify-between h-full">
       <div>
@@ -60,15 +61,34 @@ const UpcomingMeetingsCard = ({ meetings = [] }) => {
                   </div>
                 </div>
 
-                <Link to={`/room/${m.meetingCode || m._id}`}>
-                  <Button
-                    variant={m.status === 'in-progress' ? 'success' : 'primary'}
-                    size="xs"
-                    icon={Video}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      const link = getShareableMeetingLink(m.meetingCode || m._id);
+                      navigator.clipboard.writeText(link);
+                      setCopiedId(m._id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                    title="Copy meeting link"
                   >
-                    {m.status === 'in-progress' ? 'Join Live' : 'Join'}
-                  </Button>
-                </Link>
+                    {copiedId === m._id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+
+                  <Link to={`/room/${m.meetingCode || m._id}`}>
+                    <Button
+                      variant={m.status === 'in-progress' ? 'success' : 'primary'}
+                      size="xs"
+                      icon={Video}
+                    >
+                      {m.status === 'in-progress' ? 'Join Live' : 'Join'}
+                    </Button>
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

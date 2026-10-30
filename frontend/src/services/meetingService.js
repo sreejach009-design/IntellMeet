@@ -27,13 +27,13 @@ export const meetingService = {
     return response.data;
   },
 
-  async joinMeeting(id) {
-    const response = await api.post(`/meetings/${id}/join`);
+  async joinMeeting(id, data = {}) {
+    const response = await api.post(`/meetings/${id}/join`, data);
     return response.data;
   },
 
-  async endMeeting(id) {
-    const response = await api.post(`/meetings/${id}/end`);
+  async endMeeting(id, data = {}) {
+    const response = await api.post(`/meetings/${id}/end`, data);
     return response.data;
   },
 

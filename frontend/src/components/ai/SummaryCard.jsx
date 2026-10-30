@@ -39,12 +39,37 @@ const SummaryCard = ({ summary, onRegenerate, isLoading = false }) => {
               Tone: {summary.sentiment}
             </Badge>
           )}
+
+          {onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/30 text-xs font-semibold transition-colors"
+              title="Edit or add what was discussed to regenerate summary"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <span>Edit What Was Discussed</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line space-y-3">
         {summary.overview}
       </div>
+
+      {summary.overview?.includes('No spoken dialogue') && onRegenerate && (
+        <div className="mt-4 p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <p className="text-xs text-indigo-200">
+            Microphone didn't capture your audio? You can enter or paste what you discussed right now to generate the exact summary.
+          </p>
+          <button
+            onClick={onRegenerate}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm transition-colors"
+          >
+            Add What Was Discussed
+          </button>
+        </div>
+      )}
 
       {summary.keywords && summary.keywords.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mt-5 pt-4 border-t border-slate-800">
