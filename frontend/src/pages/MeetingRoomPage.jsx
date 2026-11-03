@@ -94,16 +94,22 @@ const MeetingRoomPage = () => {
   const recognitionRef = useRef(null);
   const restartTimeoutRef = useRef(null);
   const isMountedRef = useRef(true);
+  const isRecognizingRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const isExplicitlyStoppedRef = useRef(false);
+  const lastInterimRef = useRef('');
 
   // Stable refs for speech recognition to prevent restart loops
   const activeUserRef = useRef(activeUser);
   const socketRef = useRef(socket);
   const isAudioMutedRef = useRef(false);
   const meetingCodeOrIdRef = useRef(meetingCodeOrId);
+  const hasJoinedRef = useRef(hasJoined);
 
   useEffect(() => { activeUserRef.current = activeUser; }, [activeUser]);
   useEffect(() => { socketRef.current = socket; }, [socket]);
   useEffect(() => { meetingCodeOrIdRef.current = meetingCodeOrId; }, [meetingCodeOrId]);
+  useEffect(() => { hasJoinedRef.current = hasJoined; }, [hasJoined]);
 
   // Merge helper to deduplicate dialogue lines
   const mergeDialogueLines = (textA = '', textB = '') => {
@@ -123,6 +129,14 @@ const MeetingRoomPage = () => {
   // Sync transcript preview when end meeting modal opens (fetches latest server consolidated points)
   useEffect(() => {
     if (isEndModalOpen) {
+      if (lastInterimRef.current && lastInterimRef.current.trim()) {
+        const speaker = activeUserRef.current?.name || 'Participant';
+        const line = `${speaker}: ${lastInterimRef.current.trim()}`;
+        if (!accumulatedTranscriptRef.current.includes(line)) {
+          accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? '\n' : '') + line;
+        }
+        lastInterimRef.current = '';
+      }
       setEndModalTranscript(accumulatedTranscriptRef.current);
       const targetId = meeting?._id || meetingCodeOrId;
       if (targetId) {
@@ -234,8 +248,6 @@ const MeetingRoomPage = () => {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
-  const isExplicitlyStoppedRef = useRef(false);
-  const lastInterimRef = useRef('');
 
   useEffect(() => {
     const audioTrack = localStream?.getAudioTracks()[0];
@@ -307,6 +319,12 @@ const MeetingRoomPage = () => {
   const startSpeechRecognition = useCallback(() => {
     isMountedRef.current = true;
     isExplicitlyStoppedRef.current = false;
+
+    // Guard against duplicate concurrent start calls
+    if (isStartingRef.current || isRecognizingRef.current) {
+      return;
+    }
+
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -317,18 +335,20 @@ const MeetingRoomPage = () => {
       return;
     }
 
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort ? recognitionRef.current.abort() : recognitionRef.current.stop();
-      } catch (e) {}
-      recognitionRef.current = null;
-    }
+    isStartingRef.current = true;
 
     try {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = navigator.language || 'en-US';
+
+      recognition.onstart = () => {
+        isStartingRef.current = false;
+        isRecognizingRef.current = true;
+        setIsSpeechRecognitionActive(true);
+        setSpeechError(null);
+      };
 
       recognition.onresult = (event) => {
         let interim = '';
@@ -364,27 +384,35 @@ const MeetingRoomPage = () => {
       };
 
       recognition.onerror = (err) => {
-        if (err.error !== 'no-speech') {
-          console.warn('[Speech Recognition error]:', err.error);
-          if (err.error === 'not-allowed') {
-            setSpeechError('Microphone permission blocked for speech recognition. Click the camera icon in browser address bar to allow.');
-            setIsSpeechRecognitionActive(false);
-          } else if (err.error === 'audio-capture') {
-            // Audio device lock during WebRTC connection, retry in 800ms
-            if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
-            restartTimeoutRef.current = setTimeout(() => {
-              if (isMountedRef.current && !isAudioMutedRef.current && !isExplicitlyStoppedRef.current) {
-                startSpeechRecognition();
-              }
-            }, 800);
-          } else if (err.error === 'network') {
-            setSpeechError('Google speech recognition network error. Click Captions in controls to retry or use in-meeting chat notes.');
-            setIsSpeechRecognitionActive(false);
-          }
+        isStartingRef.current = false;
+        if (err.error === 'no-speech') {
+          // Chrome fires no-speech during pauses; let onend restart cleanly
+          return;
+        }
+        if (err.error === 'aborted') {
+          return;
+        }
+        console.warn('[Speech Recognition error]:', err.error);
+        if (err.error === 'not-allowed') {
+          setSpeechError('Microphone permission blocked for speech recognition. Click the camera icon in browser address bar to allow.');
+          setIsSpeechRecognitionActive(false);
+        } else if (err.error === 'audio-capture') {
+          if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+          restartTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current && !isAudioMutedRef.current && !isExplicitlyStoppedRef.current) {
+              startSpeechRecognition();
+            }
+          }, 800);
+        } else if (err.error === 'network') {
+          setSpeechError('Google speech recognition network error. Click Captions in controls to retry or use in-meeting chat notes.');
+          setIsSpeechRecognitionActive(false);
         }
       };
 
       recognition.onend = () => {
+        isStartingRef.current = false;
+        isRecognizingRef.current = false;
+
         // If there is any uncommitted interim text, flush it now
         if (lastInterimRef.current && lastInterimRef.current.trim().length > 0) {
           const speaker = activeUserRef.current?.name || 'Participant';
@@ -404,31 +432,42 @@ const MeetingRoomPage = () => {
         }
 
         // Auto-restart with debounce by calling startSpeechRecognition() for a fresh instance
-        if (isMountedRef.current && !isAudioMutedRef.current && hasJoined && !isExplicitlyStoppedRef.current) {
+        if (
+          isMountedRef.current &&
+          !isAudioMutedRef.current &&
+          hasJoinedRef.current &&
+          !isExplicitlyStoppedRef.current
+        ) {
           if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
           restartTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current && !isAudioMutedRef.current && !isExplicitlyStoppedRef.current) {
+            if (
+              isMountedRef.current &&
+              !isAudioMutedRef.current &&
+              !isExplicitlyStoppedRef.current
+            ) {
               startSpeechRecognition();
             }
-          }, 250);
+          }, 300);
         } else {
           setIsSpeechRecognitionActive(false);
         }
       };
 
-      recognition.start();
       recognitionRef.current = recognition;
-      setIsSpeechRecognitionActive(true);
-      setSpeechError(null);
+      recognition.start();
     } catch (err) {
-      console.warn('[Speech Recognition init failed]', err);
+      isStartingRef.current = false;
+      isRecognizingRef.current = false;
+      console.warn('[Speech Recognition init failed]', err.message);
       setIsSpeechRecognitionActive(false);
     }
-  }, [hasJoined]);
+  }, []);
 
   // Explicit stop
   const stopSpeechRecognition = useCallback(() => {
     isExplicitlyStoppedRef.current = true;
+    isStartingRef.current = false;
+    isRecognizingRef.current = false;
     if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
     if (recognitionRef.current) {
       try {
@@ -442,20 +481,13 @@ const MeetingRoomPage = () => {
 
   // User-facing toggle for Speech Recognition
   const toggleSpeechRecognition = useCallback(() => {
-    if (isSpeechRecognitionActive) {
+    if (isSpeechRecognitionActive || isRecognizingRef.current) {
       stopSpeechRecognition();
     } else {
       isExplicitlyStoppedRef.current = false;
       startSpeechRecognition();
     }
   }, [isSpeechRecognitionActive, startSpeechRecognition, stopSpeechRecognition]);
-
-  // Auto-prompt / assist if microphone detects voice but recognition is not running
-  useEffect(() => {
-    if (isSpeakingDetected && !isSpeechRecognitionActive && !isAudioMuted && hasJoined && !isExplicitlyStoppedRef.current) {
-      startSpeechRecognition();
-    }
-  }, [isSpeakingDetected, isSpeechRecognitionActive, isAudioMuted, hasJoined, startSpeechRecognition]);
 
   // Web Speech API lifecycle management
   useEffect(() => {
@@ -470,6 +502,7 @@ const MeetingRoomPage = () => {
     startSpeechRecognition();
 
     return () => {
+      isMountedRef.current = false;
       if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
       if (recognitionRef.current) {
         try {
@@ -526,6 +559,15 @@ const MeetingRoomPage = () => {
   // Host ends meeting for all and automatically triggers AI intelligence
   const handleEndMeetingForAll = async () => {
     try {
+      if (lastInterimRef.current && lastInterimRef.current.trim()) {
+        const speaker = activeUserRef.current?.name || 'Participant';
+        const line = `${speaker}: ${lastInterimRef.current.trim()}`;
+        if (!accumulatedTranscriptRef.current.includes(line)) {
+          accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? '\n' : '') + line;
+        }
+        lastInterimRef.current = '';
+      }
+
       const textToSave = (endModalTranscript.trim() || accumulatedTranscriptRef.current.trim());
       if (meeting) {
         // 1. Submit accumulated / edited transcript if captured
@@ -545,7 +587,7 @@ const MeetingRoomPage = () => {
         }
 
         // 3. Immediately redirect to Meeting Summary & Intelligence page
-        navigate(`/meetings/${meeting._id}?autoSummarize=true`);
+        navigate(`/meetings/${meeting._id}`);
       } else {
         navigate('/meetings');
       }
@@ -556,6 +598,15 @@ const MeetingRoomPage = () => {
   };
 
   const handleLeaveOnly = async () => {
+    if (lastInterimRef.current && lastInterimRef.current.trim()) {
+      const speaker = activeUserRef.current?.name || 'Participant';
+      const line = `${speaker}: ${lastInterimRef.current.trim()}`;
+      if (!accumulatedTranscriptRef.current.includes(line)) {
+        accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? '\n' : '') + line;
+      }
+      lastInterimRef.current = '';
+    }
+
     const textToSave = (endModalTranscript.trim() || accumulatedTranscriptRef.current.trim());
     if (meeting?._id && textToSave && textToSave.length > 5) {
       try {

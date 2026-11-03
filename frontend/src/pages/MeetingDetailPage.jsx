@@ -56,8 +56,9 @@ const MeetingDetailPage = () => {
       let currentTranscript = aiRes.transcript;
       let currentActions = aiRes.actionItems || [];
 
-      // If meeting has no summary yet or arrived from concluded session, automatically generate AI intelligence!
-      const shouldAutoSummarize = !currentSummary || autoSummarize === 'true';
+      // Only auto-summarize if meeting has NO summary yet, AND has sufficient captured dialogue (>= 10 characters)
+      const hasSufficientDialogue = Boolean(currentTranscript?.rawText && currentTranscript.rawText.trim().length >= 10);
+      const shouldAutoSummarize = (!currentSummary || autoSummarize === 'true') && hasSufficientDialogue;
       if (shouldAutoSummarize) {
         setSummarizing(true);
         try {
@@ -75,6 +76,11 @@ const MeetingDetailPage = () => {
         } finally {
           setSummarizing(false);
         }
+      }
+
+      // Clear the autoSummarize query parameter so page refreshes don't re-trigger
+      if (autoSummarize === 'true') {
+        window.history.replaceState({}, '', window.location.pathname);
       }
 
       setAiData({

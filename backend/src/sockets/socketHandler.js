@@ -8,6 +8,19 @@ const roomParticipants = new Map();
 // Socket ID -> metadata mapping
 const socketMeta = new Map();
 
+/**
+ * Safely lookup a meeting by Mongo ObjectId or human-readable meetingCode
+ */
+const findMeetingByKeyOrId = async (idOrKey) => {
+  if (!idOrKey) return null;
+  const str = String(idOrKey).trim();
+  if (/^[0-9a-fA-F]{24}$/.test(str)) {
+    const byId = await Meeting.findById(str);
+    if (byId) return byId;
+  }
+  return await Meeting.findOne({ meetingCode: str });
+};
+
 export const setupSocketHandlers = (io) => {
   io.on('connection', (socket) => {
     // Register user for personal notifications room
@@ -27,12 +40,7 @@ export const setupSocketHandlers = (io) => {
 
         // Resolve canonical room key (meetingCode if available, else meetingId)
         let canonicalKey = meetingId;
-        const validMeeting = await Meeting.findOne({
-          $or: [
-            { _id: meetingId.match(/^[0-9a-fA-F]{24}$/) ? meetingId : null },
-            { meetingCode: meetingId },
-          ],
-        });
+        const validMeeting = await findMeetingByKeyOrId(meetingId);
 
         if (validMeeting) {
           canonicalKey = validMeeting.meetingCode || validMeeting._id.toString();
@@ -149,9 +157,6 @@ export const setupSocketHandlers = (io) => {
     /**
      * Live speech transcription chunk
      */
-    /**
-     * Live speech transcription chunk
-     */
     socket.on('transcript:chunk', async ({ meetingId, speakerName, text }) => {
       if (!text || !text.trim()) return;
       const meta = socketMeta.get(socket.id);
@@ -168,14 +173,7 @@ export const setupSocketHandlers = (io) => {
 
       // Persist real-time speech dialogue directly into MongoDB Transcript
       try {
-        const validMeeting = await Meeting.findOne({
-          $or: [
-            { _id: key?.match(/^[0-9a-fA-F]{24}$/) ? key : null },
-            { meetingCode: key },
-            { _id: meetingId?.match(/^[0-9a-fA-F]{24}$/) ? meetingId : null },
-            { meetingCode: meetingId },
-          ],
-        });
+        const validMeeting = (await findMeetingByKeyOrId(key)) || (await findMeetingByKeyOrId(meetingId));
 
         if (validMeeting) {
           if (`meeting:${validMeeting._id}` !== `meeting:${key}`) {
@@ -227,18 +225,11 @@ export const setupSocketHandlers = (io) => {
         const senderName = user?.name || meta?.user?.name || 'Participant';
 
         let persistedMsg = null;
-        const validMeeting = await Meeting.findOne({
-          $or: [
-            { _id: key.match(/^[0-9a-fA-F]{24}$/) ? key : null },
-            { meetingCode: key },
-            { _id: meetingId.match(/^[0-9a-fA-F]{24}$/) ? meetingId : null },
-            { meetingCode: meetingId },
-          ],
-        });
+        const validMeeting = (await findMeetingByKeyOrId(key)) || (await findMeetingByKeyOrId(meetingId));
 
         if (validMeeting) {
           try {
-            const isMongoId = Boolean(user?.id && user.id.match(/^[0-9a-fA-F]{24}$/));
+            const isMongoId = Boolean(user?.id && /^[0-9a-fA-F]{24}$/.test(user.id));
             const newDoc = await Message.create({
               meeting: validMeeting._id,
               sender: isMongoId ? user.id : null,
@@ -246,6 +237,36 @@ export const setupSocketHandlers = (io) => {
               text: text.trim(),
               type: 'chat',
             });
+
+            // Mirror in-meeting chat notes directly into Transcript for AI summary
+            const chatLine = `${senderName}: ${text.trim()}`;
+            let tDoc = await Transcript.findOne({ meeting: validMeeting._id });
+            if (tDoc) {
+              tDoc.rawText = (tDoc.rawText ? tDoc.rawText + '\n' : '') + chatLine;
+              tDoc.segments.push({
+                speaker: senderName,
+                text: text.trim(),
+                startTime: Date.now(),
+                endTime: Date.now(),
+              });
+              await tDoc.save();
+            } else {
+              tDoc = await Transcript.create({
+                meeting: validMeeting._id,
+                rawText: chatLine,
+                source: 'live_captions',
+                segments: [
+                  {
+                    speaker: senderName,
+                    text: text.trim(),
+                    startTime: Date.now(),
+                    endTime: Date.now(),
+                  },
+                ],
+              });
+              validMeeting.transcript = tDoc._id;
+              await validMeeting.save();
+            }
 
             if (isMongoId) {
               persistedMsg = await Message.findById(newDoc._id).populate(
