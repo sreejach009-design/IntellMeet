@@ -45,6 +45,17 @@ if (process.env.NODE_ENV !== 'test') {
 // Global API rate limiting
 app.use('/api', apiLimiter);
 
+// Root endpoint for Render
+app.get('/', (req, res) => {
+  res.json({
+    name: 'IntellMeet Backend API & Socket Services',
+    status: 'online',
+    frontend: process.env.CLIENT_URL || 'https://intell-meet-orcin.vercel.app',
+    healthCheck: '/api/health',
+    version: '1.0.0',
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
