@@ -20,9 +20,12 @@ export const SocketProvider = ({ children }) => {
         if (apiEnv && apiEnv.trim().length > 0 && apiEnv.startsWith('http')) {
           return apiEnv.trim().replace(/\/api\/?$/, '').replace(/\/$/, '');
         }
+        if (window.location.hostname.includes('vercel.app')) {
+          return 'https://intellmeet-xvvx.onrender.com';
+        }
         return window.location.origin;
       }
-      return 'http://localhost:5000';
+      return 'https://intellmeet-xvvx.onrender.com';
     };
 
     const socketUrl = resolveSocketUrl();

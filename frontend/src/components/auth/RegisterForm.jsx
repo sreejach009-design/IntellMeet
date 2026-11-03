@@ -39,7 +39,7 @@ const RegisterForm = () => {
       navigate(from, { replace: true });
     } catch (err) {
       setError(
-        err.response?.data?.message || 'Registration failed. Please check your inputs and try again.'
+        err.response?.data?.message || err.message || 'Registration failed. Please check your inputs and try again.'
       );
     } finally {
       setLoading(false);

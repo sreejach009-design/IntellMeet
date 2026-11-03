@@ -5,7 +5,13 @@ const getBaseUrl = () => {
     const raw = import.meta.env.VITE_API_URL.trim().replace(/\/$/, '');
     return raw.endsWith('/api') ? raw : `${raw}/api`;
   }
-  return import.meta.env.VITE_API_BASE_URL || '/api';
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://intellmeet-xvvx.onrender.com/api';
+  }
+  return '/api';
 };
 
 const api = axios.create({

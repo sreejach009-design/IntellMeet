@@ -30,7 +30,7 @@ const LoginForm = () => {
       navigate(from, { replace: true });
     } catch (err) {
       setError(
-        err.response?.data?.message || 'Login failed. Please verify your credentials and try again.'
+        err.response?.data?.message || err.message || 'Login failed. Please verify your credentials and try again.'
       );
     } finally {
       setLoading(false);
